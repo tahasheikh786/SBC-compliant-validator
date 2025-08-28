@@ -4,23 +4,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Try to import psycopg2 at module level
+try:
+    import psycopg2
+    PSYCOPG2_AVAILABLE = True
+except ImportError:
+    PSYCOPG2_AVAILABLE = False
+
 def get_db_connection():
     """Get database connection"""
     database_url = os.getenv('RENDER_DB_KEY')
-    if database_url:
+    if database_url and PSYCOPG2_AVAILABLE:
         try:
-            import psycopg2
             return psycopg2.connect(database_url)
-        except ImportError:
-            print("Warning: psycopg2 not available, falling back to SQLite")
-            import sqlite3
-            return sqlite3.connect('sbc_records.db')
         except Exception as e:
             print(f"Warning: PostgreSQL connection failed: {e}, falling back to SQLite")
             import sqlite3
             return sqlite3.connect('sbc_records.db')
     else:
         # Fallback to local SQLite for development
+        if database_url and not PSYCOPG2_AVAILABLE:
+            print("Warning: psycopg2 not available, falling back to SQLite")
         import sqlite3
         return sqlite3.connect('sbc_records.db')
 
@@ -30,7 +34,7 @@ def init_db():
     cursor = conn.cursor()
     
     # Check if we're using PostgreSQL or SQLite
-    if isinstance(conn, psycopg2.extensions.connection):
+    if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
         # PostgreSQL
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS sbc_records (

@@ -1,9 +1,10 @@
+# Render-specific requirements with compatible versions
 fastapi==0.104.1
 uvicorn==0.24.0
-pdfplumber==0.9.0
 python-multipart==0.0.6
-boto3==1.34.0
-psycopg2-binary==2.9.9
-# Alternative if psycopg2-binary fails: psycopg2==2.9.9
 python-dotenv==1.0.0
+pdfplumber==0.9.0
+boto3==1.34.0
+# Use psycopg2-binary for easier installation
+psycopg2-binary==2.9.9
 gunicorn==21.2.0
