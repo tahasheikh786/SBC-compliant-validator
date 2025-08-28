@@ -14,13 +14,14 @@ load_dotenv()
 app = FastAPI(title="SBC Document Processor API")
 
 # Configure CORS
-cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000').split(',')
+cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:3000,https://sbc-compliant-validator.vercel.app').split(',')
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Allowed file extensions
@@ -28,6 +29,21 @@ ALLOWED_EXTENSIONS = {'pdf'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information"""
+    return {
+        "message": "SBC Compliant Validator API",
+        "version": "1.0.0",
+        "endpoints": {
+            "health": "/api/health",
+            "records": "/api/records",
+            "upload": "/api/upload",
+            "delete_record": "/api/records/{record_id}"
+        },
+        "docs": "/docs"
+    }
 
 @app.get("/api/health")
 async def health_check():

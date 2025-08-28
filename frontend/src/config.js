@@ -18,25 +18,15 @@ const config = {
   
   // Dynamic API URL based on environment
   getApiUrl: () => {
-    // For production, use the current domain
+    // For production, use the Render backend URL
     if (process.env.NODE_ENV === 'production') {
       // If REACT_APP_API_URL is set, use it
       if (process.env.REACT_APP_API_URL) {
         return process.env.REACT_APP_API_URL;
       }
       
-      // Otherwise, use the same domain as the frontend
-      const protocol = window.location.protocol;
-      const hostname = window.location.hostname;
-      const port = window.location.port ? `:${window.location.port}` : '';
-      
-      // If frontend is on a different port, assume backend is on port 5000
-      if (port && port !== ':3000') {
-        return `${protocol}//${hostname}:5000/api`;
-      }
-      
-      // Default to same domain
-      return `${protocol}//${hostname}/api`;
+      // Default to Render backend URL
+      return 'https://sbc-compliant-validator.onrender.com/api';
     }
     
     // For development, use localhost:5000
