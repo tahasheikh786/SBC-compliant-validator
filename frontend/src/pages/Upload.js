@@ -13,15 +13,22 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
 } from '@mui/material';
 import {
   CloudUpload as CloudUploadIcon,
   CheckCircle as CheckCircleIcon,
   ArrowBack as ArrowBackIcon,
+  ExpandMore as ExpandMoreIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { useNavigate } from 'react-router-dom';
 import { uploadFile } from '../services/api';
+import ExplanationTooltip from '../components/ExplanationTooltip';
 
 const Upload = () => {
   const [uploading, setUploading] = useState(false);
@@ -58,7 +65,7 @@ const Upload = () => {
         // Automatically redirect to dashboard after successful upload
         setTimeout(() => {
           navigate('/');
-        }, 2000); // Wait 2 seconds to show success message
+        }, 5000); // Wait 5 seconds to show success message and explanations
       } else {
         setError(response.error || 'Failed to process file');
       }
@@ -80,6 +87,12 @@ const Upload = () => {
 
   const handleViewResults = () => {
     navigate('/');
+  };
+
+  const getPenaltyColor = (penalty) => {
+    if (penalty === 'Yes') return 'success';
+    if (penalty === 'No') return 'error';
+    return 'warning';
   };
 
   return (
@@ -105,7 +118,7 @@ const Upload = () => {
 
       {uploadResult && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          File processed successfully! Company: {uploadResult.company_name}. Redirecting to dashboard in 2 seconds...
+          File processed successfully! Company: {uploadResult.company_name}. Redirecting to dashboard in 5 seconds...
         </Alert>
       )}
 
@@ -136,7 +149,7 @@ const Upload = () => {
                   Processing SBC Document...
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
-                  Please wait while we extract information from your PDF
+                  Please wait while we extract information and generate smart explanations from your PDF
                 </Typography>
               </Box>
             ) : (
@@ -185,6 +198,12 @@ const Upload = () => {
                   <ListItemIcon>
                     <CheckCircleIcon color="success" />
                   </ListItemIcon>
+                  <ListItemText primary="Generates intelligent compliance explanations" />
+                </ListItem>
+                <ListItem>
+                  <ListItemIcon>
+                    <CheckCircleIcon color="success" />
+                  </ListItemIcon>
                   <ListItemText primary="Calculates penalties based on the answers" />
                 </ListItem>
                 <ListItem>
@@ -203,20 +222,86 @@ const Upload = () => {
                 <Typography variant="h6" gutterBottom>
                   Processing Results:
                 </Typography>
-                <Box>
-                  <Typography variant="body2">
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" sx={{ mb: 1 }}>
                     <strong>Company:</strong> {uploadResult.company_name}
                   </Typography>
-                  <Typography variant="body2">
-                    <strong>Minimum Essential Coverage:</strong> {uploadResult.penalty_a}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Minimum Value Standards:</strong> {uploadResult.penalty_b}
-                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                    <Chip
+                      label={`Essential Coverage: ${uploadResult.penalty_a}`}
+                      color={getPenaltyColor(uploadResult.penalty_a)}
+                      size="small"
+                    />
+                    <Chip
+                      label={`Value Standards: ${uploadResult.penalty_b}`}
+                      color={getPenaltyColor(uploadResult.penalty_b)}
+                      size="small"
+                    />
+                  </Box>
                   <Typography variant="body2">
                     <strong>Filename:</strong> {uploadResult.filename}
                   </Typography>
                 </Box>
+
+                {/* Smart Explanations */}
+                {(uploadResult.penalty_a_explanation || uploadResult.penalty_b_explanation) && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      Smart Analysis:
+                    </Typography>
+                    
+                    {uploadResult.penalty_a_explanation && (
+                      <Accordion sx={{ mb: 1 }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <InfoIcon fontSize="small" color="primary" />
+                            <Typography variant="body2">
+                              Essential Coverage Analysis
+                            </Typography>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              whiteSpace: 'pre-line',
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            {uploadResult.penalty_a_explanation}
+                          </Typography>
+                        </AccordionDetails>
+                      </Accordion>
+                    )}
+
+                    {uploadResult.penalty_b_explanation && (
+                      <Accordion>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <InfoIcon fontSize="small" color="primary" />
+                            <Typography variant="body2">
+                              Value Standards Analysis
+                            </Typography>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              whiteSpace: 'pre-line',
+                              fontSize: '0.75rem',
+                              color: 'text.secondary'
+                            }}
+                          >
+                            {uploadResult.penalty_b_explanation}
+                          </Typography>
+                        </AccordionDetails>
+                      </Accordion>
+                    )}
+                  </Box>
+                )}
+
                 <Button
                   variant="contained"
                   fullWidth

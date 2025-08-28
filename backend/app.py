@@ -79,7 +79,7 @@ async def get_records():
 
 @app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
-    """Process uploaded SBC file"""
+    """Process uploaded SBC file with intelligent explanations"""
     try:
         if not file.filename:
             raise HTTPException(status_code=400, detail="No file selected")
@@ -94,7 +94,7 @@ async def upload_file(file: UploadFile = File(...)):
             temp_file_path = temp_file.name
         
         try:
-            # Process the PDF
+            # Process the PDF with enhanced explanations
             result = process_sbc_pdf(temp_file_path)
             
             if result['success']:
@@ -106,13 +106,15 @@ async def upload_file(file: UploadFile = File(...)):
                     print("Warning: S3 upload failed, saving record without S3 URL")
                     s3_url = None
                 
-                # Insert into database
+                # Insert into database with explanations
                 insert_record(
                     result['company_name'],
                     result['penalty_a'],
                     result['penalty_b'],
                     file.filename,
-                    s3_url
+                    s3_url,
+                    result.get('penalty_a_explanation'),  # NEW
+                    result.get('penalty_b_explanation')   # NEW
                 )
                 
                 response_data = {
@@ -122,6 +124,8 @@ async def upload_file(file: UploadFile = File(...)):
                         'company_name': result['company_name'],
                         'penalty_a': result['penalty_a'],
                         'penalty_b': result['penalty_b'],
+                        'penalty_a_explanation': result.get('penalty_a_explanation', ''),  # NEW
+                        'penalty_b_explanation': result.get('penalty_b_explanation', ''), # NEW
                         'filename': file.filename
                     }
                 }

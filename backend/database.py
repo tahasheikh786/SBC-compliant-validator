@@ -53,9 +53,23 @@ def init_db():
                     penalty_b VARCHAR(10) NOT NULL,
                     filename VARCHAR(255) NOT NULL,
                     s3_url TEXT,
+                    penalty_a_explanation TEXT,
+                    penalty_b_explanation TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # Add explanation columns to existing table if they don't exist
+            try:
+                cursor.execute('ALTER TABLE sbc_records ADD COLUMN penalty_a_explanation TEXT')
+            except Exception as e:
+                print(f"Column penalty_a_explanation may already exist: {e}")
+                
+            try:
+                cursor.execute('ALTER TABLE sbc_records ADD COLUMN penalty_b_explanation TEXT')
+            except Exception as e:
+                print(f"Column penalty_b_explanation may already exist: {e}")
+
         else:
             # SQLite
             print("Initializing SQLite database")
@@ -68,9 +82,22 @@ def init_db():
                     penalty_b TEXT NOT NULL,
                     filename TEXT NOT NULL,
                     s3_url TEXT,
+                    penalty_a_explanation TEXT,
+                    penalty_b_explanation TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
+            
+            # For SQLite, add columns if they don't exist
+            try:
+                cursor.execute('ALTER TABLE sbc_records ADD COLUMN penalty_a_explanation TEXT')
+            except Exception as e:
+                print(f"Column penalty_a_explanation may already exist: {e}")
+                
+            try:
+                cursor.execute('ALTER TABLE sbc_records ADD COLUMN penalty_b_explanation TEXT')
+            except Exception as e:
+                print(f"Column penalty_b_explanation may already exist: {e}")
         
         conn.commit()
         conn.close()
@@ -81,8 +108,9 @@ def init_db():
             conn.close()
         raise
 
-def insert_record(group_name, penalty_a, penalty_b, filename, s3_url=None):
-    """Insert a new SBC record into the database"""
+def insert_record(group_name, penalty_a, penalty_b, filename, s3_url=None,
+                 penalty_a_explanation=None, penalty_b_explanation=None):
+    """Insert a new SBC record into the database with explanations"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -94,16 +122,22 @@ def insert_record(group_name, penalty_a, penalty_b, filename, s3_url=None):
             # PostgreSQL
             print("Using PostgreSQL placeholders (%s)")
             cursor.execute('''
-                INSERT INTO sbc_records (group_name, upload_date, penalty_a, penalty_b, filename, s3_url)
-                VALUES (%s, %s, %s, %s, %s, %s)
-            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url))
+                INSERT INTO sbc_records 
+                (group_name, upload_date, penalty_a, penalty_b, filename, s3_url, 
+                 penalty_a_explanation, penalty_b_explanation)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url,
+                  penalty_a_explanation, penalty_b_explanation))
         else:
             # SQLite
             print("Using SQLite placeholders (?)")
             cursor.execute('''
-                INSERT INTO sbc_records (group_name, upload_date, penalty_a, penalty_b, filename, s3_url)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url))
+                INSERT INTO sbc_records 
+                (group_name, upload_date, penalty_a, penalty_b, filename, s3_url,
+                 penalty_a_explanation, penalty_b_explanation)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url,
+                  penalty_a_explanation, penalty_b_explanation))
         
         conn.commit()
         conn.close()
@@ -115,12 +149,13 @@ def insert_record(group_name, penalty_a, penalty_b, filename, s3_url=None):
         raise
 
 def get_all_records():
-    """Retrieve all SBC records from the database"""
+    """Retrieve all SBC records from the database including explanations"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
-        SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
+        SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, 
+               penalty_a_explanation, penalty_b_explanation, created_at
         FROM sbc_records
         ORDER BY created_at DESC
     ''')
@@ -131,7 +166,6 @@ def get_all_records():
     # Convert to list of dictionaries for JSON serialization
     formatted_records = []
     for record in records:
-        # PostgreSQL/SQLite returns: (id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at)
         formatted_records.append({
             'id': record[0],
             'group_name': record[1],
@@ -140,13 +174,15 @@ def get_all_records():
             'penalty_b': record[4],
             'filename': record[5],
             's3_url': record[6],
-            'created_at': record[7] if len(record) > 7 else None
+            'penalty_a_explanation': record[7] if len(record) > 7 else '',
+            'penalty_b_explanation': record[8] if len(record) > 8 else '',
+            'created_at': record[9] if len(record) > 9 else None
         })
     
     return formatted_records
 
 def get_record_by_id(record_id):
-    """Get a record by ID"""
+    """Get a record by ID including explanations"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -154,13 +190,15 @@ def get_record_by_id(record_id):
     if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
         # PostgreSQL
         cursor.execute('''
-            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
+            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, 
+                   penalty_a_explanation, penalty_b_explanation, created_at
             FROM sbc_records WHERE id = %s
         ''', (record_id,))
     else:
         # SQLite
         cursor.execute('''
-            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
+            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url,
+                   penalty_a_explanation, penalty_b_explanation, created_at
             FROM sbc_records WHERE id = ?
         ''', (record_id,))
     
@@ -176,7 +214,9 @@ def get_record_by_id(record_id):
             'penalty_b': record[4],
             'filename': record[5],
             's3_url': record[6],
-            'created_at': record[7] if len(record) > 7 else None
+            'penalty_a_explanation': record[7] if len(record) > 7 else '',
+            'penalty_b_explanation': record[8] if len(record) > 8 else '',
+            'created_at': record[9] if len(record) > 9 else None
         }
     return None
 

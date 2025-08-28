@@ -22,9 +22,11 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Upload as UploadIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getRecords, deleteRecord } from '../services/api';
+import ExplanationTooltip from '../components/ExplanationTooltip';
 
 const Dashboard = () => {
   const [records, setRecords] = useState([]);
@@ -36,12 +38,15 @@ const Dashboard = () => {
     try {
       setLoading(true);
       const response = await getRecords();
+      console.log('API Response:', response); // Debug log
       if (response.success) {
+        console.log('Records data:', response.records); // Debug log
         setRecords(response.records);
       } else {
         setError(response.error || 'Failed to fetch records');
       }
     } catch (err) {
+      console.error('Error fetching records:', err); // Debug log
       setError('Failed to connect to server');
     } finally {
       setLoading(false);
@@ -187,7 +192,22 @@ const Dashboard = () => {
               ) : (
                 records.map((record) => (
                   <TableRow key={record.id} hover>
-                    <TableCell>{record.group_name}</TableCell>
+                    <TableCell>
+                      <ExplanationTooltip
+                        penaltyAExplanation={record.penalty_a_explanation}
+                        penaltyBExplanation={record.penalty_b_explanation}
+                        penaltyA={record.penalty_a}
+                        penaltyB={record.penalty_b}
+                        companyName={record.group_name}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'help' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {record.group_name}
+                          </Typography>
+                          <InfoIcon fontSize="small" color="action" />
+                        </Box>
+                      </ExplanationTooltip>
+                    </TableCell>
                     <TableCell>{record.upload_date}</TableCell>
                     <TableCell>
                       <Chip
