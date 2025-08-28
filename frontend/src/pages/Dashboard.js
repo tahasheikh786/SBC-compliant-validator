@@ -151,7 +151,7 @@ const Dashboard = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Value Standards (No)
+               Minimum Value Standards (No)
               </Typography>
               <Typography variant="h4" color="error">
                 {stats.penaltyBRecords}
@@ -170,7 +170,7 @@ const Dashboard = () => {
                 <TableCell>Group (Company Name)</TableCell>
                 <TableCell>Date of Upload</TableCell>
                 <TableCell>Essential Coverage</TableCell>
-                <TableCell>Value Standards</TableCell>
+                <TableCell>Minimum Value Standards</TableCell>
                 <TableCell>Filename</TableCell>
                 <TableCell>Actions</TableCell>
               </TableRow>
