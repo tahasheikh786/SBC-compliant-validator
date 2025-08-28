@@ -231,7 +231,8 @@ dist
 
 # Gatsby files
 .cache/
-public
+# Don't ignore React public folder - it contains index.html
+# public
 
 # Storybook build outputs
 .out

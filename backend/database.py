@@ -1,5 +1,4 @@
 import os
-import psycopg2
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -9,7 +8,17 @@ def get_db_connection():
     """Get database connection"""
     database_url = os.getenv('RENDER_DB_KEY')
     if database_url:
-        return psycopg2.connect(database_url)
+        try:
+            import psycopg2
+            return psycopg2.connect(database_url)
+        except ImportError:
+            print("Warning: psycopg2 not available, falling back to SQLite")
+            import sqlite3
+            return sqlite3.connect('sbc_records.db')
+        except Exception as e:
+            print(f"Warning: PostgreSQL connection failed: {e}, falling back to SQLite")
+            import sqlite3
+            return sqlite3.connect('sbc_records.db')
     else:
         # Fallback to local SQLite for development
         import sqlite3
