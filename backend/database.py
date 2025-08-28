@@ -14,9 +14,14 @@ except ImportError:
 def get_db_connection():
     """Get database connection"""
     database_url = os.getenv('RENDER_DB_KEY')
+    print(f"Database URL available: {database_url is not None}")
+    print(f"PSYCOPG2_AVAILABLE: {PSYCOPG2_AVAILABLE}")
+    
     if database_url and PSYCOPG2_AVAILABLE:
         try:
-            return psycopg2.connect(database_url)
+            conn = psycopg2.connect(database_url)
+            print("Connected to PostgreSQL database")
+            return conn
         except Exception as e:
             print(f"Warning: PostgreSQL connection failed: {e}, falling back to SQLite")
             import sqlite3
@@ -26,60 +31,88 @@ def get_db_connection():
         if database_url and not PSYCOPG2_AVAILABLE:
             print("Warning: psycopg2 not available, falling back to SQLite")
         import sqlite3
+        print("Using SQLite database")
         return sqlite3.connect('sbc_records.db')
 
 def init_db():
     """Initialize the database and create tables if they don't exist"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Check if we're using PostgreSQL or SQLite
-    if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
-        # PostgreSQL
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sbc_records (
-                id SERIAL PRIMARY KEY,
-                group_name VARCHAR(255) NOT NULL,
-                upload_date VARCHAR(10) NOT NULL,
-                penalty_a VARCHAR(10) NOT NULL,
-                penalty_b VARCHAR(10) NOT NULL,
-                filename VARCHAR(255) NOT NULL,
-                s3_url TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-    else:
-        # SQLite
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS sbc_records (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                group_name TEXT NOT NULL,
-                upload_date TEXT NOT NULL,
-                penalty_a TEXT NOT NULL,
-                penalty_b TEXT NOT NULL,
-                filename TEXT NOT NULL,
-                s3_url TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-    
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Check if we're using PostgreSQL or SQLite
+        if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
+            # PostgreSQL
+            print("Initializing PostgreSQL database")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sbc_records (
+                    id SERIAL PRIMARY KEY,
+                    group_name VARCHAR(255) NOT NULL,
+                    upload_date VARCHAR(10) NOT NULL,
+                    penalty_a VARCHAR(10) NOT NULL,
+                    penalty_b VARCHAR(10) NOT NULL,
+                    filename VARCHAR(255) NOT NULL,
+                    s3_url TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+        else:
+            # SQLite
+            print("Initializing SQLite database")
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS sbc_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    group_name TEXT NOT NULL,
+                    upload_date TEXT NOT NULL,
+                    penalty_a TEXT NOT NULL,
+                    penalty_b TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    s3_url TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+        
+        conn.commit()
+        conn.close()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
+        if 'conn' in locals():
+            conn.close()
+        raise
 
 def insert_record(group_name, penalty_a, penalty_b, filename, s3_url=None):
     """Insert a new SBC record into the database"""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    upload_date = datetime.now().strftime('%Y-%m-%d')
-    
-    cursor.execute('''
-        INSERT INTO sbc_records (group_name, upload_date, penalty_a, penalty_b, filename, s3_url)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url))
-    
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        upload_date = datetime.now().strftime('%Y-%m-%d')
+        
+        # Check if we're using PostgreSQL or SQLite and use appropriate placeholders
+        if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
+            # PostgreSQL
+            print("Using PostgreSQL placeholders (%s)")
+            cursor.execute('''
+                INSERT INTO sbc_records (group_name, upload_date, penalty_a, penalty_b, filename, s3_url)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url))
+        else:
+            # SQLite
+            print("Using SQLite placeholders (?)")
+            cursor.execute('''
+                INSERT INTO sbc_records (group_name, upload_date, penalty_a, penalty_b, filename, s3_url)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (group_name, upload_date, penalty_a, penalty_b, filename, s3_url))
+        
+        conn.commit()
+        conn.close()
+        print(f"Successfully inserted record for {group_name}")
+    except Exception as e:
+        print(f"Error inserting record: {e}")
+        if 'conn' in locals():
+            conn.close()
+        raise
 
 def get_all_records():
     """Retrieve all SBC records from the database"""
@@ -117,10 +150,19 @@ def get_record_by_id(record_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
-        FROM sbc_records WHERE id = %s
-    ''', (record_id,))
+    # Check if we're using PostgreSQL or SQLite and use appropriate placeholders
+    if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
+        # PostgreSQL
+        cursor.execute('''
+            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
+            FROM sbc_records WHERE id = %s
+        ''', (record_id,))
+    else:
+        # SQLite
+        cursor.execute('''
+            SELECT id, group_name, upload_date, penalty_a, penalty_b, filename, s3_url, created_at
+            FROM sbc_records WHERE id = ?
+        ''', (record_id,))
     
     record = cursor.fetchone()
     conn.close()
@@ -143,7 +185,13 @@ def delete_record(record_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('DELETE FROM sbc_records WHERE id = %s', (record_id,))
+    # Check if we're using PostgreSQL or SQLite and use appropriate placeholders
+    if PSYCOPG2_AVAILABLE and isinstance(conn, psycopg2.extensions.connection):
+        # PostgreSQL
+        cursor.execute('DELETE FROM sbc_records WHERE id = %s', (record_id,))
+    else:
+        # SQLite
+        cursor.execute('DELETE FROM sbc_records WHERE id = ?', (record_id,))
     
     conn.commit()
     conn.close()

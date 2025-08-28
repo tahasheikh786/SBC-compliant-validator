@@ -142,6 +142,8 @@ async def upload_file(file: UploadFile = File(...)):
         raise
     except Exception as e:
         print(f"Unexpected error in upload endpoint: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.delete("/api/records/{record_id}")
