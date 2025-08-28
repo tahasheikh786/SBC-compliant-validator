@@ -22,7 +22,22 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
+
+# Add explicit OPTIONS handler for preflight requests
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle OPTIONS requests for CORS preflight"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # Allowed file extensions
 ALLOWED_EXTENSIONS = {'pdf'}
@@ -86,6 +101,11 @@ async def upload_file(file: UploadFile = File(...)):
                 # Upload to S3
                 s3_url = upload_to_s3(temp_file_path, file.filename)
                 
+                # If S3 upload fails, still save the record but without S3 URL
+                if s3_url is None:
+                    print("Warning: S3 upload failed, saving record without S3 URL")
+                    s3_url = None
+                
                 # Insert into database
                 insert_record(
                     result['company_name'],
@@ -95,7 +115,7 @@ async def upload_file(file: UploadFile = File(...)):
                     s3_url
                 )
                 
-                return {
+                response_data = {
                     'success': True,
                     'message': 'File processed successfully!',
                     'data': {
@@ -105,6 +125,11 @@ async def upload_file(file: UploadFile = File(...)):
                         'filename': file.filename
                     }
                 }
+                
+                if s3_url is None:
+                    response_data['warning'] = 'File processed but S3 upload failed. Data saved locally.'
+                
+                return response_data
             else:
                 raise HTTPException(status_code=400, detail=f"Error processing file: {result['error']}")
                 
@@ -116,7 +141,8 @@ async def upload_file(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"Unexpected error in upload endpoint: {e}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.delete("/api/records/{record_id}")
 async def delete_record(record_id: int):
